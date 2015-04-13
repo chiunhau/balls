@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -7,7 +8,8 @@
     
 	<script src="js/jquery-1.11.2.min.js"></script>
 	<script type="text/javascript" src="js/paper-full.min.js"></script>
-	<script type="text/paperscript" canvas="myCanvas2">
+	<script type="text/paperscript" canvas="paperCanvas">
+		
 		(function() {
 		  var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame ||
 		                              window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
@@ -15,7 +17,7 @@
 		})();
 
 		var video = document.getElementById('video');
-		var canvas = document.getElementById('myCanvas1');
+		var canvas = document.getElementById('sourceCanvas');
 		var width = $(window).width();
 		var height = $(window).height();		
 		var detection = {};
@@ -96,34 +98,54 @@
 
 					// motion detected
 					if((dr+dg+db) >= 100 ){
-						var ball = new Ball(new Point(c * xSide + Math.floor(xSide/2,200), r * ySide + Math.floor(ySide/2)));
-						break;
+						changed.push([c,r]);
 					}			
 				}
 			}
+
+			if (changed.length != 0) {
+				var cSum = 0, changedNum = changed.length;
+
+				for (var i = 0; i < changedNum; i++) {
+					cSum += changed[i][0];
+				}
+				var cAve = Math.floor(cSum/changedNum);
+				destination = new Point(cAve * xSide + Math.floor(xSide/2),100);
+			}
+			ball1.move(destination);
+
 		}
 
 
-		function	Ball(center) {
-			this.circle = new Path.Circle(center, 5);
-			this.circle.fillColor = 'white';
-			this.center = center;
+		function Ball(position, radius) {
+			this.path = new Path.Circle(position, radius);
+			this.path.fillColor = '#f00';
+			this.originPos = position;//Point
+
+			this.move = function(destination) {
+				if(destination != null){
+					var vector = destination - this.path.position;
+					this.path.position += vector * 0.1;
+				}
+			}
+
+			this.back = function() {
+				var vectorBack = this.originPos - this.path.position;
+				this.path.position += vectorBack;
+			}
 		}
 
-
-		
-
-	
 		canvas.width = width;
 		canvas.height = height;
 
+		var ball1 = new Ball(new Point(500, 100), 10);
 		getWebcam();
 
 	</script>	
 
 	<style>
 		body,html {
-			margin:0;
+			margin: 0;
 			padding: 0;
 		}
 		video {			
@@ -134,9 +156,12 @@
 			top: 0;
 			left: 0;			
 		}
-		#myCanvas2{
-			height:100%;
-			width:100%;
+		#sourceCanvas {
+			display: none;
+		}
+		#paperCanvas {
+			height: 100%;
+			width: 100%;
 		}
 		img {
 			display: none;
@@ -145,6 +170,6 @@
 </head>
 <body>
 	<video id="video" autoplay></video>
-	<canvas id="myCanvas1"></canvas>
-	<canvas id="myCanvas2"></canvas>
+	<canvas id="sourceCanvas"></canvas>
+	<canvas id="paperCanvas"></canvas>
 </html>
