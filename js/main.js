@@ -1,9 +1,9 @@
 function Frame() {
-	this.previousFrame; 
-	this.currentFrame;
-	this.previousCentroid;
-	this.currentCentroid;
-	this.deltaCentroid = [0, 0];
+	this.previousFrame = null; 
+	this.currentFrame = null;
+	this.previousCentroid = null;
+	this.currentCentroid = null;
+	this.deltaCentroid = new Point(0, 0);
 	this.canvas = document.getElementById('sourceCanvas');
 	this.video = document.getElementById('video');
 	this.xParts = 90;
@@ -11,10 +11,14 @@ function Frame() {
 	this.xSide = Math.floor($(window).width() / this.xParts);
 	this.ySide = Math.floor($(window).height() / this.yParts);
 	this.counter = 0;
-
+	this.center = view.center;
 };
 
 Frame.prototype.getStream = function() {
+
+	this.canvas.width = $(window).width();
+	this.canvas.height = $(window).height();
+
 	navigator.getMedia = navigator.getUserMedia || 
 		navigator.webkitGetUserMedia ||
     navigator.mozGetUserMedia ||
@@ -89,15 +93,15 @@ Frame.prototype.detect = function() {
 			rSum += changed[i][1];
 		}
 
-		var gX = Math.floor(cSum / changedNum) * xSide + Math.floor(xSide / 2);
-		var gY = Math.floor(rSum / changedNum) * ySide + Math.floor(ySide / 2);
-		var centroid = [gX, gY];
-
+		var gX = Math.floor(cSum / changedNum) * this.xSide + Math.floor(this.xSide / 2);
+		var gY = Math.floor(rSum / changedNum) * this.ySide + Math.floor(this.ySide / 2);
+		var centroid = new Point(gX, gY);
+		console.log(centroid);
 		return centroid;
 	}
 	else {
 
-		return false;
+		return -1;
 	}
 }
 
@@ -114,79 +118,68 @@ Frame.prototype.storeCentroid = function() {
 	}
 }
 
-Frame.prototype.calcMoveVector = function() {
-	this.deltaCentroid = this.currentCentroid - this.previousCentroid;
+Frame.prototype.calcDeltaCentroid = function() {
+	if (this.currentCentroid === -1 || this.previousCentroid === -1) {
+		this.deltaCentroid = new Point(0, 0);// vector 0, 0
+	}
+	else {
+		this.deltaCentroid = this.currentCentroid - this.previousCentroid;
+	}
 }
 
 function Ball(position, radius) {
 	this.path = new Path.Circle(position, radius);
 	this.path.fillColor = '#f00';
-	this.originPos = position;//Point
+	this.originPos = position;
 	this.isMoveingOut = false;
-	this.moveVector = 0;
-
-	this.back = function() {
-		var vectorBack = 
-		this.path.position += vectorBack;
-	}
+	this.moveVector = new Point(0, 0);
+	this.staticVector = this.path.position - this.originPos;
+	this.aX = Math.sin(this.staticVector.angleInRadians) * -10;
+	this.aY = Math.cos(this.staticVector.angleInRadians) * -10;
+	this.v = new Point(0, 0);
+	//this.vX = 0;
+	//this.vY = 0;
+	this.touchedCenter = true;
+	
 }
 
 Ball.prototype.move = function() {
-	this.path.position += this.deltaCentroid;
+	this.path.position += new Point(this.vX, this.vY);
 }
 
-Ball.prototype.backward = function() {
-	var vectorBack = this.originPos - this.path.position;
-	this.path.position += vectorBack * 0.5;
+Ball.prototype.update = function () {
+	this.staticVector = this.path.position - this.originPos;
+	this.aX = Math.sin(this.staticVector.angleInRadians) * -10;
+	this.aY = Math.cos(this.staticVector.angleInRadians) * -10;
+	this.v += new Point(this.aX, this.aY);
+	this.v += frame.deltaCentroid;
 }
 
 var onFrame = function(event) {
 	frame.counter += 1;
-	
 	frame.drawCanvas();
-	ball1.moveVector *= 0.5;
-	console.log(ball1.moveVector);
-	switch(frame.counter) {
-		case 1:
-			frame.storeFrames();
-			console.log(1);
-			break;
-
-		case 2:
-			frame.storeFrames();
-			frame.storeCentroid();
-			console.log(2);
-			break;
-
-		case 20:
-			frame.storeFrames();
-			frame.storeCentroid();
-			frame.calcMoveVector();
-			ball1.moveVector = frame.deltaCentroid;
-			console.log(20);
-			break;
-
-		default:
+	
+	//每40幅算出一個移動物體向量
+	if (frame.counter === 1) {
+		frame.storeFrames();
+	}
+	else if (frame.counter === 2) {
+		frame.storeFrames();
+		frame.storeCentroid();
+	}
+	else if (frame.counter === 40) {
+		frame.storeFrames();
+		frame.storeCentroid();
+		frame.calcDeltaCentroid();
+		frame.counter = 0;
 	}
 
-	if (frame.counter > 20) {
-		ball1.move();
-
-		//start moving back
-		if (frame.deltaCentroid === [0, 0] && ball1.isMoveingOut === true) {
-			ball1.isMoveingOut = false;
-			ball1.moveVector = frame.deltaCentroid * -1;
-		}
-		//just moved back to origin position
-		else if (frame.deltaCentroid === [0, 0] && ball1.isMoveingOut === false) {
-			frame.counter = 0;
-		}
-	}
+	ball1.update();
+	ball1.move();
+	
 }
 
-var ball1 = new Ball(new Point(500, 100), 10);
-
+var ball1 = new Ball(view.center, 20);
 var frame = new Frame();
-frame.canvas.width = $(window).width();
-frame.canvas.height = $(window).height();
+
 frame.getStream();
