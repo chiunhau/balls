@@ -12,6 +12,7 @@ function Frame() {
 	this.ySide = Math.floor($(window).height() / this.yParts);
 	this.counter = 0;
 	this.center = view.center;
+	this.startAni = false;
 };
 
 Frame.prototype.getStream = function() {
@@ -32,6 +33,7 @@ Frame.prototype.getStream = function() {
  			function(localMediaStream){
  				this.video.src = window.URL.createObjectURL(localMediaStream);
  				this.video.onloadedmetadata = function(e) {
+ 					this.startAni = true;
 		      onFrame();
 		    }
 			},
@@ -96,7 +98,6 @@ Frame.prototype.detect = function() {
 		var gX = Math.floor(cSum / changedNum) * this.xSide + Math.floor(this.xSide / 2);
 		var gY = Math.floor(rSum / changedNum) * this.ySide + Math.floor(this.ySide / 2);
 		var centroid = new Point(gX, gY);
-		console.log(centroid);
 		return centroid;
 	}
 	else {
@@ -127,38 +128,39 @@ Frame.prototype.calcDeltaCentroid = function() {
 	}
 }
 
-function Ball(position, radius) {
-	this.path = new Path.Circle(position, radius);
+function Ball(radius) {
+	this.path = new Path.Circle(view.center, radius);
 	this.path.fillColor = '#f00';
-	this.originPos = position;
-	this.isMoveingOut = false;
 	this.moveVector = new Point(0, 0);
-	this.staticVector = this.path.position - this.originPos;
-	this.aX = Math.sin(this.staticVector.angleInRadians) * -10;
-	this.aY = Math.cos(this.staticVector.angleInRadians) * -10;
-	this.v = new Point(0, 0);
-	//this.vX = 0;
-	//this.vY = 0;
-	this.touchedCenter = true;
-	
-}
-
-Ball.prototype.move = function() {
-	this.path.position += new Point(this.vX, this.vY);
+	this.staticVector = this.path.position - view.center;
+	this.gravity = 1;
+	this.v = new Point(0, 0);	
 }
 
 Ball.prototype.update = function () {
-	this.staticVector = this.path.position - this.originPos;
-	this.aX = Math.sin(this.staticVector.angleInRadians) * -10;
-	this.aY = Math.cos(this.staticVector.angleInRadians) * -10;
-	this.v += new Point(this.aX, this.aY);
-	this.v += frame.deltaCentroid;
+	this.staticVector = this.path.position - view.center;
+	this.aX = Math.cos(this.staticVector.angleInRadians) * this.gravity * -1;
+	this.aY = Math.sin(this.staticVector.angleInRadians) * this.gravity * -1;
+	if (this.staticVector.length > 1) {
+		this.v += new Point(this.aX, this.aY);
+	}
+	else {
+		this.v = new Point(0, 0);
+	}
+}
+
+Ball.prototype.updateOutFource = function() {
+	this.v += frame.deltaCentroid * 0.01;
+}
+
+Ball.prototype.move = function() {
+	this.path.position += this.v;
 }
 
 var onFrame = function(event) {
 	frame.counter += 1;
 	frame.drawCanvas();
-	
+	ball1.update();
 	//每40幅算出一個移動物體向量
 	if (frame.counter === 1) {
 		frame.storeFrames();
@@ -167,19 +169,43 @@ var onFrame = function(event) {
 		frame.storeFrames();
 		frame.storeCentroid();
 	}
-	else if (frame.counter === 40) {
+	else if (frame.counter === 60) {
 		frame.storeFrames();
 		frame.storeCentroid();
 		frame.calcDeltaCentroid();
 		frame.counter = 0;
+		console.log(frame.deltaCentroid);
+		ball1.updateOutFource();
+		$(function(){
+			$x = $('#x');
+			$y = $('#y');
+
+			$a = $('#a');
+			$aX = $('#aX');
+			$aY = $('#aY');
+
+			$v = $('#v');
+			$vX = $('#vX');
+			$vY = $('#vY');
+
+			$x.html(ball1.path.position.x);
+			$y.html(ball1.path.position.y);
+			$a.html(ball1.gravity);
+			$aX.html(ball1.aX);
+			$aY.html(ball1.aY);
+			$v.html(ball1.v.length);
+			$vX.html(ball1.v.x);
+			$vY.html(ball1.v.y);
+		});
 	}
 
-	ball1.update();
+	
 	ball1.move();
 	
+
 }
 
-var ball1 = new Ball(view.center, 20);
+var ball1 = new Ball(20);
 var frame = new Frame();
 
 frame.getStream();
